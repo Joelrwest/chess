@@ -18,10 +18,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Boost)
 
-add_library(board src/board.cpp)
-target_compile_options(board PUBLIC -Wall -Wextra -Wpedantic -Werror)
+add_library(engine src/bit_board.cpp src/position.cpp)
+target_compile_options(engine PUBLIC -Wall -Wextra -Wpedantic -Werror)
 
-add_executable(play src/play.cpp)
-target_link_libraries(play PUBLIC board)
-target_link_libraries(board PUBLIC Boost::program_options)
-target_compile_options(play PUBLIC -Wall -Wextra -Wpedantic -Werror)
+add_executable(debug src/debug.cpp)
+target_link_libraries(debug PUBLIC engine)
+target_link_libraries(debug PUBLIC Boost::program_options)
+target_compile_options(debug PUBLIC -Wall -Wextra -Wpedantic -Werror)

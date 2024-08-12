@@ -18,10 +18,30 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Boost)
 
-add_library(engine src/bit_board.cpp src/position.cpp)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+FetchContent_MakeAvailable(googletest)
+
+add_library(engine src/move.cpp src/position.cpp src/types.cpp)
 target_compile_options(engine PUBLIC -Wall -Wextra -Wpedantic -Werror)
 
 add_executable(debug src/debug.cpp)
 target_link_libraries(debug PUBLIC engine)
-target_link_libraries(debug PUBLIC Boost::program_options)
+target_link_libraries(debug PUBLIC ${Boost_PROGRAM_OPTIONS_LIBRARY})
 target_compile_options(debug PUBLIC -Wall -Wextra -Wpedantic -Werror)
+
+enable_testing()
+
+add_executable(
+  perft
+  test/perft.cpp
+)
+target_link_libraries(
+  perft
+  GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(perft)

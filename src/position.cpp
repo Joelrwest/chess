@@ -4,7 +4,8 @@ Position::Position() : white_bit_boards{}, black_bit_boards{}, current_player{Pl
 {
 }
 
-Position::Position(const FenParser &fen_parser) : white_bit_boards{fen_parser}, black_bit_boards{fen_parser}, current_player{fen_parser.get_current_player()}
+Position::Position(const FenParser &fen_parser)
+    : white_bit_boards{fen_parser}, black_bit_boards{fen_parser}, current_player{fen_parser.get_current_player()}
 {
 }
 

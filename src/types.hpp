@@ -105,7 +105,7 @@ enum Direction : std::int8_t
 
 std::ostream &operator<<(std::ostream &os, Direction direction);
 
-template <Direction direction> BitBoard direction_shift(BitBoard bit_board)
+template <Direction direction> constexpr BitBoard direction_shift(BitBoard bit_board)
 {
     if constexpr (direction > 0)
     {

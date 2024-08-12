@@ -1,8 +1,8 @@
 #pragma once
 
+#include "fen_parser.hpp"
 #include "move.hpp"
 #include "types.hpp"
-#include "fen_parser.hpp"
 
 #include <bit>
 #include <utility>
@@ -108,9 +108,7 @@ BitBoards<player>::BitBoards()
 
 template <Player player>
 BitBoards<player>::BitBoards(const FenParser &fen_parser)
-    : pawns{0}, knights{0},
-      bishops{0}, rooks{0},
-      queens{0}, king{0}
+    : pawns{0}, knights{0}, bishops{0}, rooks{0}, queens{0}, king{0}
 {
 
     const auto &board_array{fen_parser.get_board_array()};
@@ -122,24 +120,24 @@ BitBoards<player>::BitBoards(const FenParser &fen_parser)
             const auto mask{square_to_bit_board(square)};
             switch (entry->second)
             {
-                case Piece::Pawn:
-                    pawns |= mask;
-                    break;
-                case Piece::Knight:
-                    knights |= mask;
-                    break;
-                case Piece::Bishop:
-                    bishops |= mask;
-                    break;
-                case Piece::Rook:
-                    rooks |= mask;
-                    break;
-                case Piece::Queen:
-                    queens |= mask;
-                    break;
-                case Piece::King:
-                    king |= mask;
-                    break;
+            case Piece::Pawn:
+                pawns |= mask;
+                break;
+            case Piece::Knight:
+                knights |= mask;
+                break;
+            case Piece::Bishop:
+                bishops |= mask;
+                break;
+            case Piece::Rook:
+                rooks |= mask;
+                break;
+            case Piece::Queen:
+                queens |= mask;
+                break;
+            case Piece::King:
+                king |= mask;
+                break;
             }
         }
     }
@@ -158,7 +156,7 @@ template <Player player> std::int16_t BitBoards<player>::get_total_piece_value()
 
 template <Player player> BitBoard BitBoards<player>::get_occupied_bit_board() const
 {
-    return pawns & knights & bishops & rooks & queens & king;
+    return pawns | knights | bishops | rooks | queens | king;
 }
 
 template <Player player>
@@ -166,14 +164,14 @@ std::vector<Move> BitBoards<player>::get_moves(BitBoard opponent_occupied_bit_bo
                                                BitBoard opponent_attacking_bit_board) const
 {
     std::vector<Move> moves{};
-    const auto occupied{get_occupied_bit_board() & opponent_occupied_bit_board};
+    const auto occupied_bit_board{get_occupied_bit_board() | opponent_occupied_bit_board};
 
-    add_pawn_moves(moves, occupied, opponent_occupied_bit_board);
-    add_knight_moves(moves, occupied, opponent_occupied_bit_board);
-    add_bishop_moves(moves, occupied, opponent_occupied_bit_board);
-    add_rook_moves(moves, occupied, opponent_occupied_bit_board);
-    add_queen_moves(moves, occupied, opponent_occupied_bit_board);
-    add_king_moves(moves, occupied, opponent_occupied_bit_board, opponent_attacking_bit_board);
+    add_pawn_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
+    add_knight_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
+    add_bishop_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
+    add_rook_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
+    add_queen_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
+    add_king_moves(moves, occupied_bit_board, opponent_occupied_bit_board, opponent_attacking_bit_board);
 
     return moves;
 }
@@ -185,30 +183,32 @@ void BitBoards<player>::add_pawn_moves(std::vector<Move> &moves, BitBoard occupi
     /*
     Push moves
     */
-    const auto single_push_bit_board{direction_shift<Constants::PAWN_PUSH_DIRECTION>(pawns) & ~occupied_bit_board};
+    auto single_push_bit_board{direction_shift<Constants::PAWN_PUSH_DIRECTION>(pawns)};
+    single_push_bit_board &= ~occupied_bit_board;
     serialise_bit_board(moves, single_push_bit_board, [](auto to) { return to - Constants::PAWN_PUSH_DIRECTION; });
 
-    const auto double_push_bit_board{direction_shift<Constants::PAWN_PUSH_DIRECTION>(
-                                         single_push_bit_board & direction_shift<Constants::PAWN_PUSH_DIRECTION>(
-                                                                     Constants::STARTING_PAWNS_BIT_BOARD)) &
-                                     ~occupied_bit_board};
+    static constexpr auto SINGLE_PUSH_RANK{
+        direction_shift<Constants::PAWN_PUSH_DIRECTION>(Constants::STARTING_PAWNS_BIT_BOARD)};
+    auto double_push_bit_board{
+        direction_shift<Constants::PAWN_PUSH_DIRECTION>(single_push_bit_board & SINGLE_PUSH_RANK)};
+    double_push_bit_board &= ~occupied_bit_board;
     serialise_bit_board(moves, double_push_bit_board, [](auto to) { return to - 2 * Constants::PAWN_PUSH_DIRECTION; });
 
     /*
     Capture left
     */
-    const auto left_capture_bit_board{
-        direction_shift<Constants::PAWN_LEFT_CAPTURE_DIRECTION>(pawns & ~Constants::LEFT_FILE_BIT_BOARD) &
-        opponent_occupied_bit_board};
+    auto left_capture_bit_board{
+        direction_shift<Constants::PAWN_LEFT_CAPTURE_DIRECTION>(pawns & ~Constants::LEFT_FILE_BIT_BOARD)};
+    left_capture_bit_board &= opponent_occupied_bit_board;
     serialise_bit_board(moves, left_capture_bit_board,
                         [](auto to) { return to - Constants::PAWN_LEFT_CAPTURE_DIRECTION; });
 
     /*
     Capture right
     */
-    const auto right_capture_bit_board{
-        direction_shift<Constants::PAWN_RIGHT_CAPTURE_DIRECTION>(pawns & ~Constants::RIGHT_FILE_BIT_BOARD) &
-        opponent_occupied_bit_board};
+    auto right_capture_bit_board{
+        direction_shift<Constants::PAWN_RIGHT_CAPTURE_DIRECTION>(pawns & ~Constants::RIGHT_FILE_BIT_BOARD)};
+    right_capture_bit_board &= opponent_occupied_bit_board;
     serialise_bit_board(moves, right_capture_bit_board,
                         [](auto to) { return to - Constants::PAWN_RIGHT_CAPTURE_DIRECTION; });
 }

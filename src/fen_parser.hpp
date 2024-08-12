@@ -3,9 +3,9 @@
 #include "types.hpp"
 
 #include <array>
-#include <vector>
 #include <optional>
 #include <utility>
+#include <vector>
 
 class FenParser
 {

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "bit_board.hpp"
-#include "move.hpp"
 #include "fen_parser.hpp"
+#include "move.hpp"
 
 class Position
 {

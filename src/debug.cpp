@@ -4,14 +4,17 @@
 
 int main(void)
 {
-    Position position{};
+    const FenParser fen_parser{"8/8/8/4p1K1/2k1P3/8/8/8 b - - 0 1"};
+    Position position{fen_parser};
 
     std::cout << position << '\n';
 
-    // for (const auto &move : position.get_moves())
-    // {
-    //     std::cout << "Move: " << move << '\n';
-    // }
+    const auto moves{position.get_moves()};
+    for (const auto &move : moves)
+    {
+        std::cout << "Move: " << move << '\n';
+    }
+    std::cout << moves.size() << '\n';
 
     return 0;
 }

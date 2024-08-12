@@ -2,11 +2,13 @@
 
 #include "bit_board.hpp"
 #include "move.hpp"
+#include "fen_parser.hpp"
 
 class Position
 {
   public:
     Position();
+    Position(const FenParser &fen_parser);
 
     /*
     Positive for white, negative for black

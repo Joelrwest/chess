@@ -2,6 +2,7 @@
 
 #include "move.hpp"
 #include "types.hpp"
+#include "fen_parser.hpp"
 
 #include <bit>
 #include <utility>
@@ -16,9 +17,9 @@ class Position;
 template <> struct BitBoardsConstants<Player::White>
 {
     static constexpr auto STARTING_PAWNS_BIT_BOARD{rank_to_bit_board(Rank::R2)};
-    static constexpr auto STARTING_KNIGHTS_BIT_BOARD{square_to_bit_board(Square::B1) & square_to_bit_board(Square::G1)};
-    static constexpr auto STARTING_BISHOPS_BIT_BOARD{square_to_bit_board(Square::C1) & square_to_bit_board(Square::C1)};
-    static constexpr auto STARTING_ROOKS_BIT_BOARD{square_to_bit_board(Square::A1) & square_to_bit_board(Square::H1)};
+    static constexpr auto STARTING_KNIGHTS_BIT_BOARD{square_to_bit_board(Square::B1) | square_to_bit_board(Square::G1)};
+    static constexpr auto STARTING_BISHOPS_BIT_BOARD{square_to_bit_board(Square::C1) | square_to_bit_board(Square::F1)};
+    static constexpr auto STARTING_ROOKS_BIT_BOARD{square_to_bit_board(Square::A1) | square_to_bit_board(Square::H1)};
     static constexpr auto STARTING_QUEENS_BIT_BOARD{square_to_bit_board(Square::D1)};
     static constexpr auto STARTING_KING_BIT_BOARD{square_to_bit_board(Square::E1)};
 
@@ -34,9 +35,9 @@ template <> struct BitBoardsConstants<Player::White>
 template <> struct BitBoardsConstants<Player::Black>
 {
     static constexpr auto STARTING_PAWNS_BIT_BOARD{rank_to_bit_board(Rank::R7)};
-    static constexpr auto STARTING_KNIGHTS_BIT_BOARD{square_to_bit_board(Square::B8) & square_to_bit_board(Square::G8)};
-    static constexpr auto STARTING_BISHOPS_BIT_BOARD{square_to_bit_board(Square::C8) & square_to_bit_board(Square::C8)};
-    static constexpr auto STARTING_ROOKS_BIT_BOARD{square_to_bit_board(Square::A8) & square_to_bit_board(Square::H8)};
+    static constexpr auto STARTING_KNIGHTS_BIT_BOARD{square_to_bit_board(Square::B8) | square_to_bit_board(Square::G8)};
+    static constexpr auto STARTING_BISHOPS_BIT_BOARD{square_to_bit_board(Square::C8) | square_to_bit_board(Square::F8)};
+    static constexpr auto STARTING_ROOKS_BIT_BOARD{square_to_bit_board(Square::A8) | square_to_bit_board(Square::H8)};
     static constexpr auto STARTING_QUEENS_BIT_BOARD{square_to_bit_board(Square::D8)};
     static constexpr auto STARTING_KING_BIT_BOARD{square_to_bit_board(Square::E8)};
 
@@ -53,6 +54,7 @@ template <Player player> class BitBoards
 {
   public:
     BitBoards();
+    BitBoards(const FenParser &fen_parser);
 
     Evaluation get_total_piece_value() const;
     BitBoard get_occupied_bit_board() const;
@@ -81,6 +83,8 @@ template <Player player> class BitBoards
     void add_king_moves(std::vector<Move> &moves, BitBoard occupied_bit_board, BitBoard opponent_occupied_bit_board,
                         BitBoard opponent_attacking_bit_board) const;
 
+    template <typename F>
+    static inline void serialise_bit_board(std::vector<Move> &moves, BitBoard bit_board, F from_function);
     inline static std::uint8_t count_bits(BitBoard bit_board);
     inline static Square ls1b(BitBoard bit_board);
 
@@ -100,6 +104,45 @@ BitBoards<player>::BitBoards()
       bishops{Constants::STARTING_BISHOPS_BIT_BOARD}, rooks{Constants::STARTING_ROOKS_BIT_BOARD},
       queens{Constants::STARTING_QUEENS_BIT_BOARD}, king{Constants::STARTING_KING_BIT_BOARD}
 {
+}
+
+template <Player player>
+BitBoards<player>::BitBoards(const FenParser &fen_parser)
+    : pawns{0}, knights{0},
+      bishops{0}, rooks{0},
+      queens{0}, king{0}
+{
+
+    const auto &board_array{fen_parser.get_board_array()};
+    for (Square square{0}; square < BOARD_SQUARES; ++square)
+    {
+        const auto &entry{board_array.at(square)};
+        if (entry.has_value() && entry->first == player)
+        {
+            const auto mask{square_to_bit_board(square)};
+            switch (entry->second)
+            {
+                case Piece::Pawn:
+                    pawns |= mask;
+                    break;
+                case Piece::Knight:
+                    knights |= mask;
+                    break;
+                case Piece::Bishop:
+                    bishops |= mask;
+                    break;
+                case Piece::Rook:
+                    rooks |= mask;
+                    break;
+                case Piece::Queen:
+                    queens |= mask;
+                    break;
+                case Piece::King:
+                    king |= mask;
+                    break;
+            }
+        }
+    }
 }
 
 template <Player player> std::int16_t BitBoards<player>::get_total_piece_value() const
@@ -142,53 +185,32 @@ void BitBoards<player>::add_pawn_moves(std::vector<Move> &moves, BitBoard occupi
     /*
     Push moves
     */
-    auto single_push_bit_board{direction_shift<Constants::PAWN_PUSH_DIRECTION>(pawns) & ~occupied_bit_board};
-    auto double_push_bit_board{direction_shift<Constants::PAWN_PUSH_DIRECTION>(single_push_bit_board) &
-                               ~occupied_bit_board};
+    const auto single_push_bit_board{direction_shift<Constants::PAWN_PUSH_DIRECTION>(pawns) & ~occupied_bit_board};
+    serialise_bit_board(moves, single_push_bit_board, [](auto to) { return to - Constants::PAWN_PUSH_DIRECTION; });
 
-    while (single_push_bit_board)
-    {
-        const auto to{ls1b(single_push_bit_board)};
-        const auto from{static_cast<Square>(to - Constants::PAWN_PUSH_DIRECTION)};
-        moves.emplace_back(from, to);
-        single_push_bit_board <<= (to + 1);
-    }
-
-    while (double_push_bit_board)
-    {
-        const auto to{ls1b(double_push_bit_board)};
-        const auto from{static_cast<Square>(to - 2 * Constants::PAWN_PUSH_DIRECTION)};
-        moves.emplace_back(from, to);
-        double_push_bit_board <<= (to + 1);
-    }
+    const auto double_push_bit_board{direction_shift<Constants::PAWN_PUSH_DIRECTION>(
+                                         single_push_bit_board & direction_shift<Constants::PAWN_PUSH_DIRECTION>(
+                                                                     Constants::STARTING_PAWNS_BIT_BOARD)) &
+                                     ~occupied_bit_board};
+    serialise_bit_board(moves, double_push_bit_board, [](auto to) { return to - 2 * Constants::PAWN_PUSH_DIRECTION; });
 
     /*
     Capture left
     */
-    auto left_capture_bit_board{
+    const auto left_capture_bit_board{
         direction_shift<Constants::PAWN_LEFT_CAPTURE_DIRECTION>(pawns & ~Constants::LEFT_FILE_BIT_BOARD) &
         opponent_occupied_bit_board};
-    while (left_capture_bit_board)
-    {
-        const auto to{ls1b(left_capture_bit_board)};
-        const auto from{static_cast<Square>(to - Constants::PAWN_LEFT_CAPTURE_DIRECTION)};
-        moves.emplace_back(from, to);
-        left_capture_bit_board <<= (to + 1);
-    }
+    serialise_bit_board(moves, left_capture_bit_board,
+                        [](auto to) { return to - Constants::PAWN_LEFT_CAPTURE_DIRECTION; });
 
     /*
     Capture right
     */
-    auto right_capture_bit_board{
+    const auto right_capture_bit_board{
         direction_shift<Constants::PAWN_RIGHT_CAPTURE_DIRECTION>(pawns & ~Constants::RIGHT_FILE_BIT_BOARD) &
         opponent_occupied_bit_board};
-    while (right_capture_bit_board)
-    {
-        const auto to{ls1b(right_capture_bit_board)};
-        const auto from{static_cast<Square>(to - Constants::PAWN_RIGHT_CAPTURE_DIRECTION)};
-        moves.emplace_back(from, to);
-        right_capture_bit_board <<= (to + 1);
-    }
+    serialise_bit_board(moves, right_capture_bit_board,
+                        [](auto to) { return to - Constants::PAWN_RIGHT_CAPTURE_DIRECTION; });
 }
 
 template <Player player>
@@ -236,6 +258,20 @@ void BitBoards<player>::add_king_moves(std::vector<Move> &moves, BitBoard occupi
     (void)occupied_bit_board;
     (void)opponent_occupied_bit_board;
     (void)opponent_attacking_bit_board;
+}
+
+template <Player player>
+template <typename F>
+inline void BitBoards<player>::serialise_bit_board(std::vector<Move> &moves, BitBoard bit_board, F from_function)
+{
+    for (Square to{0}; bit_board; ++to)
+    {
+        const auto lsb{ls1b(bit_board)};
+        to += lsb;
+        const auto from{static_cast<Square>(from_function(to))};
+        moves.emplace_back(from, to);
+        bit_board >>= (lsb + 1);
+    }
 }
 
 template <Player player> inline std::uint8_t BitBoards<player>::count_bits(BitBoard bit_board)

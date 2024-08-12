@@ -21,19 +21,19 @@ enum Rank : std::uint8_t
     R8 = 7u,
 };
 
-Rank& operator++(Rank& rank);
+Rank &operator++(Rank &rank);
 
-Rank operator++(Rank& rank, int);
+Rank operator++(Rank &rank, int);
 
-Rank& operator--(Rank& rank);
+Rank &operator--(Rank &rank);
 
-Rank operator--(Rank& rank, int);
+Rank operator--(Rank &rank, int);
 
 std::ostream &operator<<(std::ostream &os, Rank rank);
 
 constexpr BitBoard rank_to_bit_board(Rank rank)
 {
-    return (BitBoard{0xFF} << rank);
+    return (BitBoard{0xFF} << (BOARD_WIDTH * rank));
 }
 
 enum File : std::uint8_t
@@ -48,9 +48,9 @@ enum File : std::uint8_t
     FH = 7u,
 };
 
-File& operator++(File& file);
+File &operator++(File &file);
 
-File operator++(File& file, int);
+File operator++(File &file, int);
 
 std::ostream &operator<<(std::ostream &os, File file);
 
@@ -73,9 +73,15 @@ enum Square : std::uint8_t
 };
 // clang-format on
 
-Square& operator++(Square& square);
+Square &operator++(Square &square);
 
-Square operator++(Square& square, int);
+Square operator++(Square &square, int);
+
+template <typename T> Square &operator+=(Square &square, T other)
+{
+    square = static_cast<Square>(square + other);
+    return square;
+}
 
 std::ostream &operator<<(std::ostream &os, Square square);
 
@@ -86,7 +92,7 @@ constexpr BitBoard square_to_bit_board(Square square)
 
 enum Direction : std::int8_t
 {
-    N = 8,
+    N = BOARD_WIDTH,
     S = -N,
     E = 1,
     W = -E,
@@ -120,3 +126,13 @@ enum Player : std::uint8_t
 };
 
 std::ostream &operator<<(std::ostream &os, Player player);
+
+enum Piece : std::uint8_t
+{
+    Pawn,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King,
+};

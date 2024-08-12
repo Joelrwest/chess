@@ -24,7 +24,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
-add_library(engine src/move.cpp src/position.cpp src/types.cpp)
+add_library(engine src/move.cpp src/position.cpp src/fen_parser.cpp src/types.cpp)
 target_compile_options(engine PUBLIC -Wall -Wextra -Wpedantic -Werror)
 
 add_executable(debug src/debug.cpp)

@@ -4,6 +4,10 @@ Position::Position() : white_bit_boards{}, black_bit_boards{}, current_player{Pl
 {
 }
 
+Position::Position(const FenParser &fen_parser) : white_bit_boards{fen_parser}, black_bit_boards{fen_parser}, current_player{fen_parser.get_current_player()}
+{
+}
+
 Evaluation Position::get_piece_difference() const
 {
     return white_bit_boards.get_total_piece_value() - black_bit_boards.get_total_piece_value();
@@ -17,7 +21,7 @@ std::vector<Move> Position::get_moves() const
         const auto opponent_occupied_bit_board{black_bit_boards.get_occupied_bit_board()};
         return white_bit_boards.get_moves(opponent_occupied_bit_board, opponent_attacking_bit_board);
     }
-    else if (current_player == Player::White)
+    else if (current_player == Player::Black)
     {
         BitBoard opponent_attacking_bit_board{0}; // TODO
         const auto opponent_occupied_bit_board{white_bit_boards.get_occupied_bit_board()};

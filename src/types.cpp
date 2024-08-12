@@ -1,63 +1,15 @@
 #include "types.hpp"
 
-Rank &operator++(Rank &rank)
-{
-    ++reinterpret_cast<std::underlying_type_t<Rank> &>(rank);
-    return rank;
-}
-
-Rank operator++(Rank &rank, int)
-{
-    const auto saved_rank{reinterpret_cast<std::underlying_type_t<Rank> &>(rank)++};
-    return Rank{saved_rank};
-}
-
-Rank &operator--(Rank &rank)
-{
-    --reinterpret_cast<std::underlying_type_t<Rank> &>(rank);
-    return rank;
-}
-
-Rank operator--(Rank &rank, int)
-{
-    const auto saved_rank{reinterpret_cast<std::underlying_type_t<Rank> &>(rank)--};
-    return Rank{saved_rank};
-}
-
 std::ostream &operator<<(std::ostream &os, Rank rank)
 {
     os << rank + 1;
     return os;
 }
 
-File &operator++(File &file)
-{
-    ++reinterpret_cast<std::underlying_type_t<File> &>(file);
-    return file;
-}
-
-File operator++(File &file, int)
-{
-    const auto saved_file{reinterpret_cast<std::underlying_type_t<File> &>(file)++};
-    return File{saved_file};
-}
-
 std::ostream &operator<<(std::ostream &os, File file)
 {
     os << static_cast<char>('A' + file);
     return os;
-}
-
-Square &operator++(Square &square)
-{
-    ++reinterpret_cast<std::underlying_type_t<Square> &>(square);
-    return square;
-}
-
-Square operator++(Square &square, int)
-{
-    const auto saved_square{reinterpret_cast<std::underlying_type_t<Square> &>(square)++};
-    return Square{saved_square};
 }
 
 std::ostream &operator<<(std::ostream &os, Square square)

@@ -9,6 +9,11 @@ using Evaluation = std::int16_t;
 static constexpr auto BOARD_WIDTH{8};
 static constexpr auto BOARD_SQUARES{BOARD_WIDTH * BOARD_WIDTH};
 
+template <typename T> inline std::underlying_type_t<T> &to_underlying(T &t)
+{
+    return reinterpret_cast<std::underlying_type_t<T> &>(t);
+}
+
 enum Rank : std::uint8_t
 {
     R1 = 0u,
@@ -21,13 +26,27 @@ enum Rank : std::uint8_t
     R8 = 7u,
 };
 
-Rank &operator++(Rank &rank);
+inline Rank &operator++(Rank &rank)
+{
+    ++to_underlying(rank);
+    return rank;
+}
 
-Rank operator++(Rank &rank, int);
+inline Rank operator++(Rank &rank, int)
+{
+    return Rank{to_underlying(rank)++};
+}
 
-Rank &operator--(Rank &rank);
+inline Rank &operator--(Rank &rank)
+{
+    --to_underlying(rank);
+    return rank;
+}
 
-Rank operator--(Rank &rank, int);
+inline Rank operator--(Rank &rank, int)
+{
+    return Rank{to_underlying(rank)--};
+}
 
 std::ostream &operator<<(std::ostream &os, Rank rank);
 
@@ -48,9 +67,16 @@ enum File : std::uint8_t
     FH = 7u,
 };
 
-File &operator++(File &file);
+inline File &operator++(File &file)
+{
+    ++to_underlying(file);
+    return file;
+}
 
-File operator++(File &file, int);
+inline File operator++(File &file, int)
+{
+    return File{to_underlying(file)++};
+}
 
 std::ostream &operator<<(std::ostream &os, File file);
 
@@ -73,14 +99,41 @@ enum Square : std::uint8_t
 };
 // clang-format on
 
-Square &operator++(Square &square);
-
-Square operator++(Square &square, int);
-
-template <typename T> Square &operator+=(Square &square, T other)
+inline Square &operator++(Square &square)
 {
-    square = static_cast<Square>(square + other);
+    ++to_underlying(square);
     return square;
+}
+
+inline Square operator++(Square &square, int)
+{
+    return Square{to_underlying(square)++};
+}
+
+template <typename T> inline Square &operator+=(Square &square, T other)
+{
+    to_underlying(square) += to_underlying(other);
+    return square;
+}
+
+template <typename T> inline Square operator+(Square &square, T other)
+{
+    return static_cast<Square>(to_underlying(square) + to_underlying(other));
+}
+
+template <> inline Square operator+(Square &square, int other)
+{
+    return static_cast<Square>(to_underlying(square) + static_cast<Square>(other));
+}
+
+template <typename T> inline Square operator-(Square &square, T other)
+{
+    return static_cast<Square>(to_underlying(square) - to_underlying(other));
+}
+
+template <> inline Square operator-(Square &square, int other)
+{
+    return static_cast<Square>(to_underlying(square) - static_cast<Square>(other));
 }
 
 std::ostream &operator<<(std::ostream &os, Square square);

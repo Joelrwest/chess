@@ -1,21 +1,21 @@
 #include "move.hpp"
 
-Move::Move(Square from, Square to) : from{from}, to{to}
+Move::Move(SquareUnderlying from, SquareUnderlying to) : from{from}, to{to}
 {
 }
 
-Square Move::get_from() const
+SquareUnderlying Move::get_from() const
 {
     return from;
 }
 
-Square Move::get_to() const
+SquareUnderlying Move::get_to() const
 {
     return to;
 }
 
 std::ostream &operator<<(std::ostream &os, Move move)
 {
-    os << move.get_from() << move.get_to();
+    os << Square{move.get_from()} << Square{move.get_to()};
     return os;
 }

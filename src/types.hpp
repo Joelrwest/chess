@@ -9,12 +9,9 @@ using Evaluation = std::int16_t;
 static constexpr auto BOARD_WIDTH{8};
 static constexpr auto BOARD_SQUARES{BOARD_WIDTH * BOARD_WIDTH};
 
-template <typename T> inline std::underlying_type_t<T> &to_underlying(T &t)
-{
-    return reinterpret_cast<std::underlying_type_t<T> &>(t);
-}
+using RankUnderlying = std::uint8_t;
 
-enum Rank : std::uint8_t
+enum Rank : RankUnderlying
 {
     R1 = 0u,
     R2 = 1u,
@@ -26,28 +23,6 @@ enum Rank : std::uint8_t
     R8 = 7u,
 };
 
-inline Rank &operator++(Rank &rank)
-{
-    ++to_underlying(rank);
-    return rank;
-}
-
-inline Rank operator++(Rank &rank, int)
-{
-    return Rank{to_underlying(rank)++};
-}
-
-inline Rank &operator--(Rank &rank)
-{
-    --to_underlying(rank);
-    return rank;
-}
-
-inline Rank operator--(Rank &rank, int)
-{
-    return Rank{to_underlying(rank)--};
-}
-
 std::ostream &operator<<(std::ostream &os, Rank rank);
 
 constexpr BitBoard rank_to_bit_board(Rank rank)
@@ -55,7 +30,9 @@ constexpr BitBoard rank_to_bit_board(Rank rank)
     return (BitBoard{0xFF} << (BOARD_WIDTH * rank));
 }
 
-enum File : std::uint8_t
+using FileUnderlying = std::uint8_t;
+
+enum File : FileUnderlying
 {
     FA = 0u,
     FB = 1u,
@@ -67,17 +44,6 @@ enum File : std::uint8_t
     FH = 7u,
 };
 
-inline File &operator++(File &file)
-{
-    ++to_underlying(file);
-    return file;
-}
-
-inline File operator++(File &file, int)
-{
-    return File{to_underlying(file)++};
-}
-
 std::ostream &operator<<(std::ostream &os, File file);
 
 constexpr BitBoard file_to_bit_board(File file)
@@ -85,8 +51,10 @@ constexpr BitBoard file_to_bit_board(File file)
     return (BitBoard{0x0101010101010101} << file);
 }
 
+using SquareUnderlying = std::uint8_t;
+
 // clang-format off
-enum Square : std::uint8_t
+enum Square : SquareUnderlying
 {
     A1 = 0u , B1 = 1u , C1 = 2u , D1 = 3u , E1 = 4u , F1 = 5u , G1 = 6u , H1 = 7u ,
     A2 = 8u , B2 = 9u , C2 = 10u, D2 = 11u, E2 = 12u, F2 = 13u, G2 = 14u, H2 = 15u,
@@ -99,43 +67,6 @@ enum Square : std::uint8_t
 };
 // clang-format on
 
-inline Square &operator++(Square &square)
-{
-    ++to_underlying(square);
-    return square;
-}
-
-inline Square operator++(Square &square, int)
-{
-    return Square{to_underlying(square)++};
-}
-
-template <typename T> inline Square &operator+=(Square &square, T other)
-{
-    to_underlying(square) += to_underlying(other);
-    return square;
-}
-
-template <typename T> inline Square operator+(Square &square, T other)
-{
-    return static_cast<Square>(to_underlying(square) + to_underlying(other));
-}
-
-template <> inline Square operator+(Square &square, int other)
-{
-    return static_cast<Square>(to_underlying(square) + static_cast<Square>(other));
-}
-
-template <typename T> inline Square operator-(Square &square, T other)
-{
-    return static_cast<Square>(to_underlying(square) - to_underlying(other));
-}
-
-template <> inline Square operator-(Square &square, int other)
-{
-    return static_cast<Square>(to_underlying(square) - static_cast<Square>(other));
-}
-
 std::ostream &operator<<(std::ostream &os, Square square);
 
 constexpr BitBoard square_to_bit_board(Square square)
@@ -143,7 +74,9 @@ constexpr BitBoard square_to_bit_board(Square square)
     return (BitBoard{1} << square);
 }
 
-enum Direction : std::int8_t
+using DirectionUnderlying = std::int8_t;
+
+enum Direction : DirectionUnderlying
 {
     N = BOARD_WIDTH,
     S = -N,
@@ -154,6 +87,16 @@ enum Direction : std::int8_t
     SE = S + E,
     SW = S + W,
     NW = N + W,
+
+    /* For knight only */
+    NNE = N + NE,
+    ENE = E + NE,
+    ESE = E + SE,
+    SSE = S + SE,
+    SSW = S + SW,
+    WSW = W + SW,
+    WNW = W + NW,
+    NNW = N + NW,
 };
 
 std::ostream &operator<<(std::ostream &os, Direction direction);

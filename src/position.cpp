@@ -35,15 +35,16 @@ std::vector<Move> Position::get_moves() const
 std::ostream &operator<<(std::ostream &os, Position position)
 {
     os << ' ';
-    for (File file{0}; file < BOARD_WIDTH; ++file)
+    for (FileUnderlying file{0}; file < BOARD_WIDTH; ++file)
     {
-        os << ' ' << file;
+        os << ' ' << File{file};
     }
 
-    for (Rank rank{7}; rank < BOARD_WIDTH; --rank)
+    for (RankUnderlying rank{7}; rank < BOARD_WIDTH; --rank)
     {
-        os << '\n' << rank << ' ';
-        for (auto square{static_cast<Square>(rank * BOARD_WIDTH)}; square < (rank + 1) * BOARD_WIDTH; ++square)
+        os << '\n' << Rank{rank} << ' ';
+        for (auto square{static_cast<SquareUnderlying>(rank * BOARD_WIDTH)}; square < (rank + 1) * BOARD_WIDTH;
+             ++square)
         {
             /*
             Set background to appropriate colour for this square
@@ -53,7 +54,7 @@ std::ostream &operator<<(std::ostream &os, Position position)
             /*
             Super repetitive but does the job
             */
-            const auto mask{square_to_bit_board(square)};
+            const auto mask{square_to_bit_board(Square{square})};
             if (position.white_bit_boards.pawns & mask)
             {
                 os << "♙";

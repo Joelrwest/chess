@@ -4,7 +4,7 @@
 
 int main(void)
 {
-    const FenParser fen_parser{"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"};
+    const FenParser fen_parser{"8/5k2/3p4/1p1Pp2p/pP2Pp1P/P4P1K/8/8 b - - 99 50"};
     Position position{fen_parser};
 
     std::cout << position << '\n';

@@ -70,23 +70,31 @@ template <Player player> class BitBoards
     static constexpr Evaluation ROOK_VALUE{5};
     static constexpr Evaluation QUEEN_VALUE{9};
 
-    void add_pawn_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
+    static constexpr auto NOT_A_FILE_BIT_BOARD{~file_to_bit_board(File::FA)};
+    static constexpr auto NOT_AB_FILE_BIT_BOARD{NOT_A_FILE_BIT_BOARD & ~file_to_bit_board(File::FB)};
+    static constexpr auto NOT_H_FILE_BIT_BOARD{~file_to_bit_board(File::FH)};
+    static constexpr auto NOT_GH_FILE_BIT_BOARD{NOT_H_FILE_BIT_BOARD & ~file_to_bit_board(File::FG)};
+    static constexpr std::array<BitBoard, BOARD_SQUARES> create_knight_bit_board_lookup();
+    static constexpr std::array<BitBoard, BOARD_SQUARES> create_king_bit_board_lookup();
+    static constexpr std::array<BitBoard, BOARD_SQUARES> KNIGHT_BIT_BOARD_LOOKUP{create_knight_bit_board_lookup()};
+    static constexpr std::array<BitBoard, BOARD_SQUARES> KING_BIT_BOARD_LOOKUP{create_king_bit_board_lookup()};
+
+    void add_pawn_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                         BitBoard opponent_occupied_bit_board) const;
-    void add_knight_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
+    void add_knight_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board) const;
+    void add_bishop_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                           BitBoard opponent_occupied_bit_board) const;
-    void add_bishop_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
-                          BitBoard opponent_occupied_bit_board) const;
-    void add_rook_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
+    void add_rook_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                         BitBoard opponent_occupied_bit_board) const;
-    void add_queen_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
+    void add_queen_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                          BitBoard opponent_occupied_bit_board) const;
-    void add_king_moves(std::vector<Move> &moves, BitBoard occupied_bit_board, BitBoard opponent_occupied_bit_board,
+    void add_king_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                         BitBoard opponent_attacking_bit_board) const;
 
     template <typename F>
     static inline void serialise_bit_board(std::vector<Move> &moves, BitBoard bit_board, F from_function);
     inline static std::uint8_t count_bits(BitBoard bit_board);
-    inline static Square ls1b(BitBoard bit_board);
+    inline static std::uint8_t ls1b(BitBoard bit_board);
 
     BitBoard pawns;
     BitBoard knights;
@@ -110,14 +118,13 @@ template <Player player>
 BitBoards<player>::BitBoards(const FenParser &fen_parser)
     : pawns{0}, knights{0}, bishops{0}, rooks{0}, queens{0}, king{0}
 {
-
     const auto &board_array{fen_parser.get_board_array()};
-    for (Square square{0}; square < BOARD_SQUARES; ++square)
+    for (SquareUnderlying square{0}; square < BOARD_SQUARES; ++square)
     {
         const auto &entry{board_array.at(square)};
         if (entry.has_value() && entry->first == player)
         {
-            const auto mask{square_to_bit_board(square)};
+            const auto mask{square_to_bit_board(Square{square})};
             switch (entry->second)
             {
             case Piece::Pawn:
@@ -164,25 +171,26 @@ std::vector<Move> BitBoards<player>::get_moves(BitBoard opponent_occupied_bit_bo
                                                BitBoard opponent_attacking_bit_board) const
 {
     std::vector<Move> moves{};
-    const auto occupied_bit_board{get_occupied_bit_board() | opponent_occupied_bit_board};
+    const auto self_occupied_bit_board{get_occupied_bit_board()};
 
-    add_pawn_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
-    add_knight_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
-    add_bishop_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
-    add_rook_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
-    add_queen_moves(moves, occupied_bit_board, opponent_occupied_bit_board);
-    add_king_moves(moves, occupied_bit_board, opponent_occupied_bit_board, opponent_attacking_bit_board);
+    add_pawn_moves(moves, self_occupied_bit_board, opponent_occupied_bit_board);
+    add_knight_moves(moves, self_occupied_bit_board);
+    add_bishop_moves(moves, self_occupied_bit_board, opponent_occupied_bit_board);
+    add_rook_moves(moves, self_occupied_bit_board, opponent_occupied_bit_board);
+    add_queen_moves(moves, self_occupied_bit_board, opponent_occupied_bit_board);
+    add_king_moves(moves, self_occupied_bit_board, opponent_attacking_bit_board);
 
     return moves;
 }
 
 template <Player player>
-void BitBoards<player>::add_pawn_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
+void BitBoards<player>::add_pawn_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                                        BitBoard opponent_occupied_bit_board) const
 {
     /*
     Push moves
     */
+    const auto occupied_bit_board{self_occupied_bit_board | opponent_occupied_bit_board};
     auto single_push_bit_board{direction_shift<Constants::PAWN_PUSH_DIRECTION>(pawns)};
     single_push_bit_board &= ~occupied_bit_board;
     serialise_bit_board(moves, single_push_bit_board, [](auto to) { return to - Constants::PAWN_PUSH_DIRECTION; });
@@ -192,7 +200,8 @@ void BitBoards<player>::add_pawn_moves(std::vector<Move> &moves, BitBoard occupi
     auto double_push_bit_board{
         direction_shift<Constants::PAWN_PUSH_DIRECTION>(single_push_bit_board & SINGLE_PUSH_RANK)};
     double_push_bit_board &= ~occupied_bit_board;
-    serialise_bit_board(moves, double_push_bit_board, [](auto to) { return to - 2 * Constants::PAWN_PUSH_DIRECTION; });
+    serialise_bit_board(moves, double_push_bit_board,
+                        [](auto to) { return to - static_cast<std::uint8_t>(2 * Constants::PAWN_PUSH_DIRECTION); });
 
     /*
     Capture left
@@ -214,61 +223,68 @@ void BitBoards<player>::add_pawn_moves(std::vector<Move> &moves, BitBoard occupi
 }
 
 template <Player player>
-void BitBoards<player>::add_knight_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
+void BitBoards<player>::add_knight_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board) const
+{
+    auto bit_board{knights};
+    for (SquareUnderlying from{0}; bit_board; ++from)
+    {
+        const auto lsb{ls1b(bit_board)};
+        from += lsb;
+
+        const auto attacks_bit_board{KNIGHT_BIT_BOARD_LOOKUP.at(from) & ~self_occupied_bit_board};
+        serialise_bit_board(moves, attacks_bit_board, [from](auto) { return from; });
+
+        bit_board >>= (lsb + 1);
+    }
+}
+
+template <Player player>
+void BitBoards<player>::add_bishop_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                                          BitBoard opponent_occupied_bit_board) const
 {
     (void)moves;
-    (void)occupied_bit_board;
+    (void)self_occupied_bit_board;
     (void)opponent_occupied_bit_board;
 }
 
 template <Player player>
-void BitBoards<player>::add_bishop_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
-                                         BitBoard opponent_occupied_bit_board) const
-{
-    (void)moves;
-    (void)occupied_bit_board;
-    (void)opponent_occupied_bit_board;
-}
-
-template <Player player>
-void BitBoards<player>::add_rook_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
+void BitBoards<player>::add_rook_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                                        BitBoard opponent_occupied_bit_board) const
 {
     (void)moves;
-    (void)occupied_bit_board;
+    (void)self_occupied_bit_board;
     (void)opponent_occupied_bit_board;
 }
 
 template <Player player>
-void BitBoards<player>::add_queen_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
+void BitBoards<player>::add_queen_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                                         BitBoard opponent_occupied_bit_board) const
 {
     (void)moves;
-    (void)occupied_bit_board;
+    (void)self_occupied_bit_board;
     (void)opponent_occupied_bit_board;
 }
 
 template <Player player>
-void BitBoards<player>::add_king_moves(std::vector<Move> &moves, BitBoard occupied_bit_board,
-                                       BitBoard opponent_occupied_bit_board,
+void BitBoards<player>::add_king_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                                        BitBoard opponent_attacking_bit_board) const
 {
-    (void)moves;
-    (void)occupied_bit_board;
-    (void)opponent_occupied_bit_board;
-    (void)opponent_attacking_bit_board;
+    const SquareUnderlying from{ls1b(king)};
+    const auto attacks_no_check_bit_board{KING_BIT_BOARD_LOOKUP.at(from) & ~self_occupied_bit_board &
+                                          ~opponent_attacking_bit_board};
+
+    serialise_bit_board(moves, attacks_no_check_bit_board, [from](auto) { return from; });
 }
 
 template <Player player>
 template <typename F>
 inline void BitBoards<player>::serialise_bit_board(std::vector<Move> &moves, BitBoard bit_board, F from_function)
 {
-    for (Square to{0}; bit_board; ++to)
+    for (SquareUnderlying to{0}; bit_board; ++to)
     {
         const auto lsb{ls1b(bit_board)};
         to += lsb;
-        const auto from{static_cast<Square>(from_function(to))};
+        const auto from{static_cast<SquareUnderlying>(from_function(to))};
         moves.emplace_back(from, to);
         bit_board >>= (lsb + 1);
     }
@@ -279,7 +295,54 @@ template <Player player> inline std::uint8_t BitBoards<player>::count_bits(BitBo
     return std::popcount(bit_board);
 }
 
-template <Player player> inline Square BitBoards<player>::ls1b(BitBoard bit_board)
+template <Player player> inline std::uint8_t BitBoards<player>::ls1b(BitBoard bit_board)
 {
-    return static_cast<Square>(std::countr_zero(bit_board));
+    return static_cast<std::uint8_t>(std::countr_zero(bit_board));
+}
+
+template <Player player>
+constexpr std::array<BitBoard, BOARD_SQUARES> BitBoards<player>::create_knight_bit_board_lookup()
+{
+    std::array<BitBoard, BOARD_SQUARES> lookup{};
+    for (SquareUnderlying from{0}; from < BOARD_SQUARES; ++from)
+    {
+        const auto from_bit_board{square_to_bit_board(Square{from})};
+
+        BitBoard attacks_bit_board{0};
+        attacks_bit_board |= direction_shift<Direction::NNE>(from_bit_board & NOT_H_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::ENE>(from_bit_board & NOT_GH_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::ESE>(from_bit_board & NOT_GH_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::SSE>(from_bit_board & NOT_H_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::SSW>(from_bit_board & NOT_A_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::WSW>(from_bit_board & NOT_AB_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::WNW>(from_bit_board & NOT_AB_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::NNW>(from_bit_board & NOT_A_FILE_BIT_BOARD);
+
+        lookup.at(from) = attacks_bit_board;
+    }
+
+    return lookup;
+}
+
+template <Player player> constexpr std::array<BitBoard, BOARD_SQUARES> BitBoards<player>::create_king_bit_board_lookup()
+{
+    std::array<BitBoard, BOARD_SQUARES> lookup{};
+    for (SquareUnderlying from{0}; from < BOARD_SQUARES; ++from)
+    {
+        const auto from_bit_board{square_to_bit_board(Square{from})};
+
+        BitBoard attacks_bit_board{0};
+        attacks_bit_board |= direction_shift<Direction::N>(from_bit_board);
+        attacks_bit_board |= direction_shift<Direction::NE>(from_bit_board & NOT_H_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::E>(from_bit_board & NOT_H_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::SE>(from_bit_board & NOT_H_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::S>(from_bit_board);
+        attacks_bit_board |= direction_shift<Direction::SW>(from_bit_board & NOT_A_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::W>(from_bit_board & NOT_A_FILE_BIT_BOARD);
+        attacks_bit_board |= direction_shift<Direction::NW>(from_bit_board & NOT_A_FILE_BIT_BOARD);
+
+        lookup.at(from) = attacks_bit_board;
+    }
+
+    return lookup;
 }

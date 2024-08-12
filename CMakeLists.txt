@@ -38,8 +38,12 @@ add_executable(
   perft
   test/perft.cpp
 )
+
+target_include_directories(perft PUBLIC ${CMAKE_CURRENT_LIST_DIR}/src)
+
 target_link_libraries(
   perft
+  engine
   GTest::gtest_main
 )
 

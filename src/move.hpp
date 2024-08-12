@@ -5,14 +5,14 @@
 class Move
 {
   public:
-    Move(Square from, Square to);
+    Move(SquareUnderlying from, SquareUnderlying to);
 
-    Square get_from() const;
-    Square get_to() const;
+    SquareUnderlying get_from() const;
+    SquareUnderlying get_to() const;
 
   private:
-    Square from;
-    Square to;
+    SquareUnderlying from;
+    SquareUnderlying to;
 };
 
 std::ostream &operator<<(std::ostream &os, Move move);

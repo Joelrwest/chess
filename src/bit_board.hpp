@@ -6,6 +6,7 @@
 #include "types.hpp"
 
 #include <bit>
+#include <cmath>
 #include <iostream>
 #include <utility>
 #include <vector>
@@ -42,7 +43,7 @@ template <Player player> class BitBoards
 
     template <Direction direction> static consteval BitBoard create_diagonal_bit_board(Square starting_square);
     static constexpr auto MAIN_DIAGONAL_BIT_BOARD{create_diagonal_bit_board<Direction::NE>(Square::A1)};
-    static constexpr auto MAIN_ANTIDIAGONAL_BIT_BOARD{create_diagonal_bit_board<Direction::NW>(Square::A8)};
+    static constexpr auto MAIN_ANTIDIAGONAL_BIT_BOARD{create_diagonal_bit_board<Direction::NW>(Square::H1)};
 
     static consteval Lookup<BitBoard> create_knight_attacks_bit_board_lookup();
     static consteval Lookup<BitBoard> create_king_attacks_bit_board_lookup();
@@ -60,6 +61,13 @@ template <Player player> class BitBoards
     static consteval Lookup<Magic> create_rook_magics_lookup();
     static constexpr Lookup<Magic> BISHOP_MAGICS_LOOKUP{create_bishop_magics_lookup()};
     static constexpr Lookup<Magic> ROOK_MAGICS_LOOKUP{create_rook_magics_lookup()};
+
+    using BishopAttackLookup = Lookup<BitBoard, 512>;
+    using RookAttackLookup = Lookup<BitBoard, 4096>;
+    static consteval BishopAttackLookup create_bishop_attacks_bit_board_lookup();
+    static consteval RookAttackLookup create_rook_attacks_bit_board_lookup();
+    static constexpr BishopAttackLookup BISHOP_ATTACKS_BIT_BOARD_LOOKUP{create_bishop_attacks_bit_board_lookup()};
+    static constexpr RookAttackLookup ROOK_ATTACKS_BIT_BOARD_LOOKUP{create_rook_attacks_bit_board_lookup()};
 
     void add_pawn_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                         BitBoard opponent_occupied_bit_board) const;
@@ -224,18 +232,50 @@ template <Player player>
 void BitBoards<player>::add_bishop_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                                          BitBoard opponent_occupied_bit_board) const
 {
-    (void)moves;
-    (void)self_occupied_bit_board;
-    (void)opponent_occupied_bit_board;
+    auto bit_board{rooks};
+    for (SquareUnderlying from{0}; bit_board; ++from)
+    {
+        const auto lsb{ls1b(bit_board)};
+        from += lsb;
+
+        auto idx{self_occupied_bit_board | opponent_occupied_bit_board};
+        idx &= BISHOP_RELEVANT_OCCUPANCIES_BIT_BOARD_LOOKUP.at(from);
+        idx *= BISHOP_MAGICS_LOOKUP.at(from);
+
+        static constexpr auto SHIFT_AMOUNT{BOARD_SQUARES -
+                                           static_cast<int>(std::log2(BISHOP_ATTACKS_BIT_BOARD_LOOKUP.size()))};
+        idx >>= SHIFT_AMOUNT;
+
+        const auto attacks_bit_board{BISHOP_ATTACKS_BIT_BOARD_LOOKUP.at(idx)};
+        serialise_bit_board(moves, attacks_bit_board, [from](auto) { return from; });
+
+        bit_board >>= (lsb + 1);
+    }
 }
 
 template <Player player>
 void BitBoards<player>::add_rook_moves(std::vector<Move> &moves, BitBoard self_occupied_bit_board,
                                        BitBoard opponent_occupied_bit_board) const
 {
-    (void)moves;
-    (void)self_occupied_bit_board;
-    (void)opponent_occupied_bit_board;
+    auto bit_board{rooks};
+    for (SquareUnderlying from{0}; bit_board; ++from)
+    {
+        const auto lsb{ls1b(bit_board)};
+        from += lsb;
+
+        auto idx{self_occupied_bit_board | opponent_occupied_bit_board};
+        idx &= ROOK_RELEVANT_OCCUPANCIES_BIT_BOARD_LOOKUP.at(from);
+        idx *= ROOK_MAGICS_LOOKUP.at(from);
+
+        static constexpr auto SHIFT_AMOUNT{BOARD_SQUARES -
+                                           static_cast<int>(std::log2(ROOK_ATTACKS_BIT_BOARD_LOOKUP.size()))};
+        idx >>= SHIFT_AMOUNT;
+
+        const auto attacks_bit_board{ROOK_ATTACKS_BIT_BOARD_LOOKUP.at(idx)};
+        serialise_bit_board(moves, attacks_bit_board, [from](auto) { return from; });
+
+        bit_board >>= (lsb + 1);
+    }
 }
 
 template <Player player>
@@ -324,16 +364,15 @@ consteval Lookup<BitBoard> BitBoards<player>::create_bishop_relevant_occupancies
     Lookup<BitBoard> bishop_relevant_occupancies_bit_board_lookup{};
     for (SquareUnderlying from{0}; from < BOARD_SQUARES; ++from)
     {
-        const auto not_from_bit_board{~square_to_bit_board(Square{from})};
-        const auto diagonal_shift_amount{(from & 0x7) - (from >> 3)}; // Cursed
-        // const auto antidiagonal_shift_amount{BOARD_WIDTH - 1 - diagonal_shift_amount};
+        const auto diagonal_shift_amount{(from >> 3) - (from & 0x7)}; /* Cursed */
+        const auto antidiagonal_shift_amount{(from & 0x7) + (from >> 3) - 7};
 
         BitBoard relevant_occupancy_bit_board{0};
 
         relevant_occupancy_bit_board |= diagonal_shift(MAIN_DIAGONAL_BIT_BOARD, diagonal_shift_amount);
-        // relevant_occupancy_bit_board |= diagonal_shift(MAIN_ANTIDIAGONAL_BIT_BOARD, antidiagonal_shift_amount);
+        relevant_occupancy_bit_board |= diagonal_shift(MAIN_ANTIDIAGONAL_BIT_BOARD, antidiagonal_shift_amount);
         relevant_occupancy_bit_board &= NOT_EDGE_BIT_BOARD;
-        relevant_occupancy_bit_board &= not_from_bit_board;
+        relevant_occupancy_bit_board &= ~square_to_bit_board(Square{from});
 
         bishop_relevant_occupancies_bit_board_lookup.at(from) = relevant_occupancy_bit_board;
     }
@@ -348,14 +387,13 @@ consteval Lookup<BitBoard> BitBoards<player>::create_rook_relevant_occupancies_b
     for (SquareUnderlying from{0}; from < BOARD_SQUARES; ++from)
     {
         const Square from_square{from};
-        const auto not_from_bit_board{~square_to_bit_board(from_square)};
         const auto rank{square_to_rank(from_square)};
         const auto file{square_to_file(from_square)};
 
         BitBoard relevant_occupancy_bit_board{0};
         relevant_occupancy_bit_board |= rank_to_bit_board(rank) & NOT_RANK_END_BIT_BOARD;
         relevant_occupancy_bit_board |= file_to_bit_board(file) & NOT_FILE_END_BIT_BOARD;
-        relevant_occupancy_bit_board &= not_from_bit_board;
+        relevant_occupancy_bit_board &= ~square_to_bit_board(from_square);
 
         rook_relevant_occupancies_bit_board_lookup.at(from) = relevant_occupancy_bit_board;
     }
@@ -398,4 +436,20 @@ template <Player player> consteval Lookup<Magic> BitBoards<player>::create_rook_
     Lookup<Magic> rook_magics_lookup{};
 
     return rook_magics_lookup;
+}
+
+template <Player player>
+consteval BitBoards<player>::BishopAttackLookup BitBoards<player>::create_bishop_attacks_bit_board_lookup()
+{
+    BishopAttackLookup bishop_attacks_bit_board_lookup{};
+
+    return bishop_attacks_bit_board_lookup;
+}
+
+template <Player player>
+consteval BitBoards<player>::RookAttackLookup BitBoards<player>::create_rook_attacks_bit_board_lookup()
+{
+    RookAttackLookup rook_attacks_bit_board_lookup{};
+
+    return rook_attacks_bit_board_lookup;
 }

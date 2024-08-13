@@ -8,7 +8,7 @@
 static constexpr auto BOARD_WIDTH{8};
 static constexpr auto BOARD_SQUARES{BOARD_WIDTH * BOARD_WIDTH};
 
-template <typename T> using Lookup = std::array<T, BOARD_SQUARES>;
+template <typename T, std::size_t SIZE = BOARD_SQUARES> using Lookup = std::array<T, SIZE>;
 using BitBoard = std::uint64_t;
 using Evaluation = std::int16_t;
 using Magic = std::uint64_t;

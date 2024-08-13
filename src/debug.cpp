@@ -16,5 +16,7 @@ int main(void)
     }
     std::cout << moves.size() << '\n';
 
+    Position start{};
+
     return 0;
 }

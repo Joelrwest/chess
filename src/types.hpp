@@ -1,15 +1,21 @@
 #pragma once
 
+#include <array>
+#include <concepts>
 #include <cstdint>
 #include <iostream>
-
-using BitBoard = std::uint64_t;
-using Evaluation = std::int16_t;
 
 static constexpr auto BOARD_WIDTH{8};
 static constexpr auto BOARD_SQUARES{BOARD_WIDTH * BOARD_WIDTH};
 
+template <typename T> using Lookup = std::array<T, BOARD_SQUARES>;
+using BitBoard = std::uint64_t;
+using Evaluation = std::int16_t;
+using Magic = std::uint64_t;
 using RankUnderlying = std::uint8_t;
+using FileUnderlying = std::uint8_t;
+using SquareUnderlying = std::uint8_t;
+using DirectionUnderlying = std::int8_t;
 
 enum Rank : RankUnderlying
 {
@@ -23,15 +29,6 @@ enum Rank : RankUnderlying
     R8 = 7u,
 };
 
-std::ostream &operator<<(std::ostream &os, Rank rank);
-
-constexpr BitBoard rank_to_bit_board(Rank rank)
-{
-    return (BitBoard{0xFF} << (BOARD_WIDTH * rank));
-}
-
-using FileUnderlying = std::uint8_t;
-
 enum File : FileUnderlying
 {
     FA = 0u,
@@ -43,15 +40,6 @@ enum File : FileUnderlying
     FG = 6u,
     FH = 7u,
 };
-
-std::ostream &operator<<(std::ostream &os, File file);
-
-constexpr BitBoard file_to_bit_board(File file)
-{
-    return (BitBoard{0x0101010101010101} << file);
-}
-
-using SquareUnderlying = std::uint8_t;
 
 // clang-format off
 enum Square : SquareUnderlying
@@ -66,15 +54,6 @@ enum Square : SquareUnderlying
     A8 = 56u, B8 = 57u, C8 = 58u, D8 = 59u, E8 = 60u, F8 = 61u, G8 = 62u, H8 = 63u,
 };
 // clang-format on
-
-std::ostream &operator<<(std::ostream &os, Square square);
-
-constexpr BitBoard square_to_bit_board(Square square)
-{
-    return (BitBoard{1} << square);
-}
-
-using DirectionUnderlying = std::int8_t;
 
 enum Direction : DirectionUnderlying
 {
@@ -99,9 +78,38 @@ enum Direction : DirectionUnderlying
     NNW = N + NW,
 };
 
-std::ostream &operator<<(std::ostream &os, Direction direction);
+enum Player : std::uint8_t
+{
+    White,
+    Black,
+};
 
-template <Direction direction> constexpr BitBoard direction_shift(BitBoard bit_board)
+enum Piece : std::uint8_t
+{
+    Pawn,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King,
+};
+
+inline constexpr BitBoard rank_to_bit_board(Rank rank)
+{
+    return BitBoard{0xFF} << (BOARD_WIDTH * rank);
+}
+
+inline constexpr BitBoard file_to_bit_board(File file)
+{
+    return BitBoard{0x0101010101010101} << file;
+}
+
+inline constexpr BitBoard square_to_bit_board(Square square)
+{
+    return BitBoard{1} << square;
+}
+
+template <Direction direction> inline constexpr BitBoard direction_shift(BitBoard bit_board)
 {
     if constexpr (direction > 0)
     {
@@ -115,20 +123,47 @@ template <Direction direction> constexpr BitBoard direction_shift(BitBoard bit_b
     throw std::logic_error{"No point in shifting by 0 bits"};
 }
 
-enum Player : std::uint8_t
+template <Direction direction, std::unsigned_integral T>
+inline constexpr BitBoard direction_shift(BitBoard bit_board, T magnitude)
 {
-    White,
-    Black,
-};
+    if constexpr (direction > 0)
+    {
+        return bit_board << (direction * magnitude);
+    }
+    else if constexpr (direction < 0)
+    {
+        return bit_board >> -(direction * magnitude);
+    }
 
+    throw std::logic_error{"No point in shifting by 0 bits"};
+}
+
+template <std::integral T> inline constexpr BitBoard diagonal_shift(BitBoard diagonal, T shift)
+{
+    if (shift > 0)
+    {
+        diagonal = direction_shift<Direction::N>(diagonal, static_cast<std::uint8_t>(shift));
+    }
+    else if (shift < 0)
+    {
+        diagonal = direction_shift<Direction::S>(diagonal, static_cast<std::uint8_t>(-shift));
+    }
+
+    return diagonal;
+}
+
+inline constexpr Rank square_to_rank(Square square)
+{
+    return static_cast<Rank>(square / BOARD_WIDTH);
+}
+
+inline constexpr File square_to_file(Square square)
+{
+    return static_cast<File>(square % BOARD_WIDTH);
+}
+
+std::ostream &operator<<(std::ostream &os, Rank rank);
+std::ostream &operator<<(std::ostream &os, File file);
+std::ostream &operator<<(std::ostream &os, Square square);
+std::ostream &operator<<(std::ostream &os, Direction direction);
 std::ostream &operator<<(std::ostream &os, Player player);
-
-enum Piece : std::uint8_t
-{
-    Pawn,
-    Knight,
-    Bishop,
-    Rook,
-    Queen,
-    King,
-};

@@ -14,10 +14,7 @@ std::ostream &operator<<(std::ostream &os, File file)
 
 std::ostream &operator<<(std::ostream &os, Square square)
 {
-    const auto file{static_cast<char>('A' + (square % BOARD_WIDTH))};
-    const auto rank{square / BOARD_WIDTH + 1};
-    os << file << rank;
-
+    os << square_to_file(square) << square_to_rank(square);
     return os;
 }
 

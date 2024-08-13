@@ -4,9 +4,10 @@
 #include "position.hpp"
 
 #include <cstdint>
+#include <span>
 #include <string_view>
 
-void test_position(std::string_view fen, std::vector<std::uint64_t> num_nodes);
+void test_position(std::string_view fen, std::span<const std::uint64_t> num_nodes);
 std::uint64_t perft_impl(Position &position, std::uint8_t depth);
 
 TEST(perft, starting_position)
@@ -17,14 +18,14 @@ TEST(perft, starting_position)
     test_position(FEN, NUM_NODES);
 }
 
-void test_position(std::string_view fen, std::vector<std::uint64_t> num_nodes)
+void test_position(std::string_view fen, std::span<const std::uint64_t> num_nodes)
 {
     const FenParser fen_parser{fen};
     Position position{fen_parser};
 
     for (std::uint8_t depth{0}; depth < num_nodes.size(); ++depth)
     {
-        EXPECT_EQ(num_nodes.at(depth), perft_impl(position, depth));
+        EXPECT_EQ(num_nodes[depth], perft_impl(position, depth));
     }
 }
 
